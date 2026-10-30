@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FF13 RTA ドロップトラッカー</title>
+<style>
+  :root {
+    --bg: #0b0f19;
+    --card: #161e2e;
+    --card-border: #2a364f;
+    --primary: #38bdf8;
+    --accent: #f59e0b;
+    --danger: #ef4444;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --empty-slot: #131b2e;
+  }
+
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 8px;
+    padding-bottom: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 6px;
+  }
+
+  /* メインタブ */
+  .main-nav {
+    display: flex;
+    gap: 6px;
+  }
+
+  .nav-tab {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .nav-tab.active {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+  }
+
+  .btn-reset-main {
+    background-color: var(--danger);
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  /* 章選択 */
+  .chapter-bar {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .chapter-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ch-btn {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .ch-btn.active {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+  }
+
+  /* ドロップ候補パネル */
+  .drop-panel {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 40px;
+    align-items: center;
+  }
+
+  /* 医術解体・全消去トグルエリア */
+  .medical-dissect-container {
+    background: #1e293b;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: bold;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .medical-dissect-container input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+
+  /* 素材一括クリアボタン */
+  .material-clear-btn {
+    background: #475569;
+    color: #fff;
+    border: 1px solid #64748b;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .material-clear-btn:active {
+    background: var(--danger);
+  }
+
+  .item-add-btn {
+    background: #223046;
+    color: var(--text);
+    border: 1px solid #3b4d6c;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .item-add-btn:active {
+    background: var(--primary);
+    color: #000;
+  }
+
+  .price-tag {
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: normal;
+  }
+
+  .item-add-btn:active .price-tag {
+    color: #000;
+  }
+
+  .empty-msg {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  /* 2列グリッド */
+  .inventory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .slot-card {
+    background: var(--card);
+    border: 1.5px solid var(--card-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    min-height: 52px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    cursor: grab;
+  }
+
+  .slot-card.empty {
+    background: var(--empty-slot);
+    border: 1.5px dashed var(--card-border);
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .slot-card.selected {
+    border-color: var(--accent) !important;
+  }
+
+  .item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .item-name {
+    font-weight: bold;
+    font-size: 0.8rem;
+    line-height: 1.1;
+  }
+
+  .item-price-sub {
+    font-size: 0.7rem;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .btn-qty {
+    background: #2a364f;
+    color: #fff;
+    border: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-qty:active {
+    background: var(--primary);
+    color: #000;
+  }
+
+  .qty-val {
+    font-weight: bold;
+    font-size: 0.85rem;
+    min-width: 16px;
+    text-align: center;
+  }
+
+  .add-icon {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+  }
+
+  /* 合計GIL */
+  .footer-gil {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0284c7;
+    color: #fff;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 800;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.4);
+    z-index: 100;
+  }
+
+  .gil-detail {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  .total-highlight {
+    font-size: 0.95rem;
+    color: #fef08a;
+  }
+
+  /* モーダル */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal-body {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 12px;
+    width: 100%;
+    max-width: 320px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-title {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--primary);
+    margin: 0;
+  }
+
+  .modal-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 50vh;
+  }
+
+  .modal-item-btn {
+    background: #223046;
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+  }
+
+  .modal-close-btn {
+    background: var(--card-border);
+    color: var(--text);
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .btn-modal-danger {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="main-nav">
+    <button type="button" class="nav-tab active" id="tabMaterial" onclick="switchTracker('material')">素材</button>
+    <button type="button" class="nav-tab" id="tabBattle" onclick="switchTracker('battle')">戦闘アイテム</button>
+  </nav>
+  <button type="button" class="btn-reset-main" id="btnReset">全リセット</button>
+</header>
+
+<!-- 章選択 -->
+<div class="chapter-bar" id="chapterBar"></div>
+
+<!-- ドロップ追加ボタン -->
+<div class="drop-panel" id="dropPanel"></div>
+
+<!-- インベントリ 2列グリッド -->
+<div class="inventory-grid" id="inventoryGrid"></div>
+
+<!-- 売却額フッター -->
+<div class="footer-gil">
+  <div class="gil-detail">
+    <span>素材: <span id="matGilText">0G</span></span>
+    <span>戦闘: <span id="batGilText">0G</span></span>
+  </div>
+  <div>
+    <span>総合計: </span>
+    <span class="total-highlight" id="totalGilText">0 GIL</span>
+  </div>
+</div>
+
+<!-- アイテム手動割り当てモーダル -->
+<div class="modal-overlay" id="itemModal">
+  <div class="modal-body">
+    <h3 class="modal-title">枠へ割り当てるアイテムを選択</h3>
+    <div class="modal-list" id="modalItemList"></div>
+    <button type="button" class="modal-close-btn" id="btnCloseModal">キャンセル</button>
+  </div>
+</div>
+
+<!-- リセット確認モーダル -->
+<div class="modal-overlay" id="confirmResetModal">
+  <div class="modal-body">
+    <h3 class="modal-title">全リセットの確認</h3>
+    <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);">
+      素材・戦闘アイテムのすべてのデータと枠を初期化しますか？
+    </p>
+    <div class="modal-actions">
+      <button type="button" class="modal-close-btn" id="btnCancelReset">キャンセル</button>
+      <button type="button" class="btn-modal-danger" id="btnExecReset">リセット実行</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ----------------------------------------------------
+  データ定義
+---------------------------------------------------- */
+const DATA = {
+  material: {
+    maxCh: 10,
+    allMap: {
+      '欠けた牙': 15, '呪われた牙': 40, '高分子体': 100, 'デジタル回路': 230,
+      'クレジットチップ': 500, '裂けた革': 15, '丈夫な革': 40, '落ちた涙': 15,
+      '失望の涙': 40, '汚れた爪': 15, '野獣の爪': 40, 'パラフィンオイル': 160,
+      'スパークプラグ': 160, 'パッシブシーカー': 420, '折れた骨': 15, '極太の骨': 40,
+      '電解コンデンサ': 160, 'セラミック装甲': 330, 'ボムの灰': 90, 'ボムの欠片': 215,
+      'べとつく油': 15, '芳香の油': 40, 'ターボジェット': 420, '超伝導体': 420,
+      'スラスト軸受': 420, 'プレミアムチップ': 2500, '怪魔の翼': 75, '閃ウラン鉱': 5000,
+      'ジャイロセンサー': 330, '圧電素子': 420, 'シリコンオイル': 320, 'にごったゼリー': 15,
+      '彩りゼリー': 40, '抜けた尾': 15, '蛇蝎の尾': 40, '割れた殻': 15,
+      '鉄甲殻': 40, '輝コバルト鉱': 3000
+    },
+    chapters: {
+      1: [{ name: '欠けた牙', price: 15 }, { name: '呪われた牙', price: 40 }, { name: '高分子体', price: 100 }, { name: 'デジタル回路', price: 230 }, { name: 'クレジットチップ', price: 500 }],
+      2: [{ name: '欠けた牙', price: 15 }, { name: '呪われた牙', price: 40 }, { name: '裂けた革', price: 15 }, { name: '丈夫な革', price: 40 }, { name: '落ちた涙', price: 15 }, { name: '失望の涙', price: 40 }],
+      3: [{ name: '落ちた涙', price: 15 }, { name: '失望の涙', price: 40 }, { name: 'デジタル回路', price: 230 }, { name: '汚れた爪', price: 15 }, { name: '野獣の爪', price: 40 }, { name: '欠けた牙', price: 15 }, { name: '呪われた牙', price: 40 }],
+      4: [{ name: '欠けた牙', price: 15 }, { name: '呪われた牙', price: 40 }, { name: 'パラフィンオイル', price: 160 }, { name: 'デジタル回路', price: 230 }, { name: 'スパークプラグ', price: 160 }, { name: 'パッシブシーカー', price: 420 }, { name: '折れた骨', price: 15 }, { name: '極太の骨', price: 40 }, { name: '電解コンデンサ', price: 160 }, { name: 'セラミック装甲', price: 330 }, { name: 'ボムの灰', price: 90 }, { name: 'ボムの欠片', price: 215 }],
+      5: [{ name: '欠けた牙', price: 15 }, { name: '呪われた牙', price: 40 }, { name: 'べとつく油', price: 15 }, { name: '芳香の油', price: 40 }, { name: '汚れた爪', price: 15 }, { name: 'ターボジェット', price: 420 }, { name: 'デジタル回路', price: 230 }],
+      6: [],
+      7: [{ name: 'デジタル回路', price: 230 }, { name: '超伝導体', price: 420 }, { name: 'スラスト軸受', price: 420 }, { name: 'クレジットチップ', price: 500 }, { name: 'プレミアムチップ', price: 2500 }, { name: '怪魔の翼', price: 75 }, { name: '閃ウラン鉱', price: 5000 }],
+      8: [{ name: 'ジャイロセンサー', price: 330 }, { name: '圧電素子', price: 420 }],
+      9: [{ name: 'クレジットチップ', price: 500 }, { name: 'プレミアムチップ', price: 2500 }, { name: 'シリコンオイル', price: 320 }, { name: 'にごったゼリー', price: 15 }, { name: '彩りゼリー', price: 40 }, { name: '抜けた尾', price: 15 }, { name: '蛇蝎の尾', price: 40 }, { name: '割れた殻', price: 15 }, { name: '鉄甲殻', price: 40 }, { name: '輝コバルト鉱', price: 3000 }],
+      10: [{ name: 'スパークプラグ', price: 160 }, { name: 'ラジアル軸受', price: 320 }]
+    }
+  },
+  battle: {
+    maxCh: 13,
+    allMap: {
+      'ポーション': 25, 'フェニックスの尾': 500, 'ライブラスコープ': 500,
+      'パワースモーク': 500, 'バリアスモーク': 500, 'スニークスモーク': 500,
+      'エーテルスモーク': 500, 'エリクサー': 10, '聖水': 75,
+      'とんかち': 75, '痛み止め': 75, 'くさい液': 75
+    },
+    chapters: {
+      1: [{ name: 'ポーション', price: 25 }, { name: 'フェニックスの尾', price: 500 }],
+      2: [{ name: 'スニークスモーク', price: 500 }, { name: 'パワースモーク', price: 500 }, { name: 'フェニックスの尾', price: 500 }],
+      3: [{ name: 'ポーション', price: 25 }, { name: 'スニークスモーク', price: 500 }, { name: 'パワースモーク', price: 500 }, { name: 'ライブラスコープ', price: 500 }, { name: 'フェニックスの尾', price: 500 }],
+      4: [{ name: 'パワースモーク', price: 500 }, { name: 'バリアスモーク', price: 500 }, { name: 'ライブラスコープ', price: 500 }, { name: 'フェニックスの尾', price: 500 }, { name: 'スニークスモーク', price: 500 }],
+      5: [{ name: 'パワースモーク', price: 500 }, { name: 'バリアスモーク', price: 500 }, { name: 'エーテルスモーク', price: 500 }, { name: 'フェニックスの尾', price: 500 }],
+      6: [{ name: 'バリアスモーク', price: 500 }],
+      7: [{ name: 'ポーション', price: 25 }, { name: 'フェニックスの尾', price: 500 }, { name: 'パワースモーク', price: 500 }, { name: 'バリアスモーク', price: 500 }, { name: 'エーテルスモーク', price: 500 }, { name: 'エリクサー', price: 10 }, { name: 'スニークスモーク', price: 500 }],
+      8: [],
+      9: [{ name: 'フェニックスの尾', price: 500 }, { name: 'バリアスモーク', price: 500 }, { name: 'スニークスモーク', price: 500 }, { name: 'エーテルスモーク', price: 500 }],
+      10: [{ name: 'エーテルスモーク', price: 500 }],
+      11: [{ name: 'バリアスモーク', price: 500 }, { name: 'パワースモーク', price: 500 }, { name: 'エーテルスモーク', price: 500 }, { name: 'エリクサー', price: 10 }, { name: '聖水', price: 75 }, { name: 'とんかち', price: 75 }, { name: '痛み止め', price: 75 }, { name: 'くさい液', price: 75 }, { name: 'ライブラスコープ', price: 500 }, { name: 'スニークスモーク', price: 500 }],
+      12: [{ name: 'バリアスモーク', price: 500 }, { name: 'スニークスモーク', price: 500 }, { name: 'パワースモーク', price: 500 }, { name: 'エーテルスモーク', price: 500 }, { name: 'エリクサー', price: 10 }],
+      13: [{ name: 'パワースモーク', price: 500 }, { name: 'バリアスモーク', price: 500 }, { name: 'スニークスモーク', price: 500 }, { name: 'エーテルスモーク', price: 500 }, { name: 'ライブラスコープ', price: 500 }]
+    }
+  }
+};
+
+/* ----------------------------------------------------
+  状態管理
+---------------------------------------------------- */
+let currentMode = 'material';
+
+const state = {
+  material: {
+    chapter: 1,
+    slots: Array(6).fill(null),
+    selectedSlotIdx: null
+  },
+  battle: {
+    chapter: 1,
+    slots: Array(6).fill(null),
+    selectedSlotIdx: null,
+    medicalDissect: {
+      7: false,
+      9: false,
+      11: false,
+      12: false
+    }
+  }
+};
+
+let assignTargetSlotIdx = null;
+
+/* ----------------------------------------------------
+  初期化
+---------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  renderChapterBar();
+  renderDropPanel();
+  renderGrid();
+  bindResetEvents();
+});
+
+/* ----------------------------------------------------
+  モード切り替え
+---------------------------------------------------- */
+function switchTracker(mode) {
+  if (currentMode === mode) return;
+  currentMode = mode;
+
+  document.getElementById('tabMaterial').classList.toggle('active', mode === 'material');
+  document.getElementById('tabBattle').classList.toggle('active', mode === 'battle');
+
+  renderChapterBar();
+  renderDropPanel();
+  renderGrid();
+}
+
+/* ----------------------------------------------------
+  UIレンダリング
+---------------------------------------------------- */
+function renderChapterBar() {
+  const bar = document.getElementById('chapterBar');
+  bar.innerHTML = '';
+  const maxCh = DATA[currentMode].maxCh;
+  const currentCh = state[currentMode].chapter;
+
+  for (let ch = 1; ch <= maxCh; ch++) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `ch-btn ${ch === currentCh ? 'active' : ''}`;
+    btn.innerText = `Ch.${ch}`;
+    btn.onclick = () => selectChapter(ch);
+    bar.appendChild(btn);
+  }
+}
+
+function selectChapter(ch) {
+  state[currentMode].chapter = ch;
+  renderChapterBar();
+  renderDropPanel();
+}
+
+function renderDropPanel() {
+  const panel = document.getElementById('dropPanel');
+  panel.innerHTML = '';
+
+  const ch = state[currentMode].chapter;
+  const items = DATA[currentMode].chapters[ch] || [];
+
+  if (currentMode === 'battle' && [7, 9, 11, 12].includes(ch)) {
+    const label = document.createElement('label');
+    label.className = 'medical-dissect-container';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!state.battle.medicalDissect[ch];
+    checkbox.onchange = (e) => toggleMedicalDissect(ch, e.target.checked);
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode('医術解体'));
+    panel.appendChild(label);
+  }
+
+  // 素材タブのCh.7のとき、素材全消去ボタンを表示
+  if (currentMode === 'material' && ch === 7) {
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'material-clear-btn';
+    clearBtn.innerText = '素材全消去';
+    clearBtn.onclick = () => clearAllMaterialSlots();
+    panel.appendChild(clearBtn);
+  }
+
+  if (items.length === 0 && (currentMode !== 'battle' || ![7, 9, 11, 12].includes(ch)) && !(currentMode === 'material' && ch === 7)) {
+    panel.innerHTML = '<span class="empty-msg">ドロップアイテムなし</span>';
+    return;
+  }
+
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'item-add-btn';
+    btn.innerHTML = `<span>+ ${item.name}</span><span class="price-tag">(${item.price}G)</span>`;
+    btn.onclick = () => addItemToGrid(item.name);
+    panel.appendChild(btn);
+  });
+}
+
+/* 素材タブの全スロットをクリアする処理 */
+function clearAllMaterialSlots() {
+  state.material.slots = Array(6).fill(null);
+  state.material.selectedSlotIdx = null;
+  renderGrid();
+}
+
+/* 医術解体チェック変更時の処理 */
+function toggleMedicalDissect(ch, isChecked) {
+  state.battle.medicalDissect[ch] = isChecked;
+  const targetItems = ['パワースモーク', 'バリアスモーク', 'エーテルスモーク', 'エリクサー'];
+
+  if (isChecked) {
+    targetItems.forEach(itemName => {
+      addItemToGrid(itemName);
+    });
+  } else {
+    targetItems.forEach(itemName => {
+      removeSingleItemFromSlots(itemName);
+    });
+  }
+}
+
+function addSingleItemToEmptySlot(itemName) {
+  const slots = state[currentMode].slots;
+  const emptyIdx = slots.findIndex(s => s === null);
+  
+  if (emptyIdx !== -1) {
+    slots[emptyIdx] = { name: itemName, qty: 1 };
+  } else {
+    slots.push({ name: itemName, qty: 1 });
+  }
+  renderGrid();
+}
+
+function removeSingleItemFromSlots(itemName) {
+  const slots = state[currentMode].slots;
+  let targetIdx = -1;
+  for (let i = slots.length - 1; i >= 0; i--) {
+    if (slots[i] && slots[i].name === itemName) {
+      targetIdx = i;
+      break;
+    }
+  }
+
+  if (targetIdx !== -1) {
+    slots[targetIdx].qty--;
+    if (slots[targetIdx].qty <= 0) {
+      slots[targetIdx] = null;
+    }
+  }
+  renderGrid();
+}
+
+function addItemToGrid(itemName) {
+  const slots = state[currentMode].slots;
+  const existingIdx = slots.findIndex(s => s && s.name === itemName);
+
+  if (existingIdx !== -1) {
+    slots[existingIdx].qty++;
+  } else {
+    addSingleItemToEmptySlot(itemName);
+    return;
+  }
+  renderGrid();
+}
+
+function changeQty(idx, delta, event) {
+  event.stopPropagation();
+  const slots = state[currentMode].slots;
+  if (!slots[idx]) return;
+
+  slots[idx].qty += delta;
+  if (slots[idx].qty <= 0) {
+    slots[idx] = null;
+  }
+  renderGrid();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('inventoryGrid');
+  grid.innerHTML = '';
+
+  const slots = state[currentMode].slots;
+  const selectedSlotIdx = state[currentMode].selectedSlotIdx;
+  const allMap = DATA[currentMode].allMap;
+
+  while (slots.length < 6) {
+    slots.push(null);
+  }
+
+  slots.forEach((slot, idx) => {
+    const card = document.createElement('div');
+    card.className = `slot-card ${!slot ? 'empty' : ''} ${selectedSlotIdx === idx ? 'selected' : ''}`;
+    card.draggable = true;
+
+    card.onclick = () => handleSlotClick(idx);
+    card.ondragstart = (e) => e.dataTransfer.setData('text/plain', idx);
+    card.ondragover = (e) => e.preventDefault();
+    card.ondrop = (e) => {
+      e.preventDefault();
+      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      swapSlots(fromIdx, idx);
+    };
+
+    if (!slot) {
+      card.innerHTML = `<span class="add-icon">+</span>`;
+    } else {
+      const price = allMap[slot.name] || 0;
+      const subtotal = price * slot.qty;
+
+      card.innerHTML = `
+        <div class="item-info">
+          <div class="item-name">${slot.name}</div>
+          <div class="item-price-sub">${subtotal.toLocaleString()}G <span style="font-size:0.65rem; color:var(--text-muted);">(${price}G)</span></div>
+        </div>
+        <div class="qty-controls">
+          <button type="button" class="btn-qty" onclick="changeQty(${idx}, -1, event)">-</button>
+          <span class="qty-val">${slot.qty}</span>
+          <button type="button" class="btn-qty" onclick="changeQty(${idx}, 1, event)">+</button>
+        </div>
+      `;
+    }
+
+    grid.appendChild(card);
+  });
+
+  updateTotalGil();
+}
+
+function handleSlotClick(idx) {
+  const curState = state[currentMode];
+  if (curState.selectedSlotIdx !== null) {
+    if (curState.selectedSlotIdx !== idx) {
+      swapSlots(curState.selectedSlotIdx, idx);
+    }
+    curState.selectedSlotIdx = null;
+    renderGrid();
+    return;
+  }
+
+  if (!curState.slots[idx]) {
+    openAssignModal(idx);
+    return;
+  }
+
+  curState.selectedSlotIdx = idx;
+  renderGrid();
+}
+
+function swapSlots(fromIdx, toIdx) {
+  const slots = state[currentMode].slots;
+  const temp = slots[fromIdx];
+  slots[fromIdx] = slots[toIdx];
+  slots[toIdx] = temp;
+  renderGrid();
+}
+
+/* ----------------------------------------------------
+  金額計算
+---------------------------------------------------- */
+function calcGil(mode) {
+  const slots = state[mode].slots;
+  const allMap = DATA[mode].allMap;
+  return slots.reduce((sum, slot) => {
+    if (!slot) return sum;
+    return sum + (allMap[slot.name] || 0) * slot.qty;
+  }, 0);
+}
+
+function updateTotalGil() {
+  const matGil = calcGil('material');
+  const batGil = calcGil('battle');
+  const totalGil = matGil + batGil;
+
+  document.getElementById('matGilText').innerText = `${matGil.toLocaleString()}G`;
+  document.getElementById('batGilText').innerText = `${batGil.toLocaleString()}G`;
+  document.getElementById('totalGilText').innerText = `${totalGil.toLocaleString()} GIL`;
+}
+
+/* ----------------------------------------------------
+  モーダル関連
+---------------------------------------------------- */
+function openAssignModal(slotIdx) {
+  assignTargetSlotIdx = slotIdx;
+  const list = document.getElementById('modalItemList');
+  list.innerHTML = '';
+  const allMap = DATA[currentMode].allMap;
+
+  Object.keys(allMap).forEach(name => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'modal-item-btn';
+    btn.innerHTML = `<span>${name}</span> <span>${allMap[name]} G</span>`;
+    btn.onclick = () => {
+      state[currentMode].slots[assignTargetSlotIdx] = { name, qty: 1 };
+      closeModal('itemModal');
+      renderGrid();
+    };
+    list.appendChild(btn);
+  });
+
+  document.getElementById('itemModal').classList.add('active');
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('active');
+}
+
+document.getElementById('btnCloseModal').onclick = () => closeModal('itemModal');
+
+/* ----------------------------------------------------
+  リセット処理
+---------------------------------------------------- */
+function bindResetEvents() {
+  const btnReset = document.getElementById('btnReset');
+  const confirmModal = document.getElementById('confirmResetModal');
+  const btnCancel = document.getElementById('btnCancelReset');
+  const btnExec = document.getElementById('btnExecReset');
+
+  btnReset.onclick = () => {
+    confirmModal.classList.add('active');
+  };
+
+  btnCancel.onclick = () => {
+    confirmModal.classList.remove('active');
+  };
+
+  btnExec.onclick = () => {
+    executeFullReset();
+    confirmModal.classList.remove('active');
+  };
+}
+
+function executeFullReset() {
+  state.material.slots = Array(6).fill(null);
+  state.material.selectedSlotIdx = null;
+  state.material.chapter = 1;
+
+  state.battle.slots = Array(6).fill(null);
+  state.battle.selectedSlotIdx = null;
+  state.battle.chapter = 1;
+  state.battle.medicalDissect = { 7: false, 9: false, 11: false, 12: false };
+
+  assignTargetSlotIdx = null;
+
+  renderChapterBar();
+  renderDropPanel();
+  renderGrid();
+}
+</script>
+</body>
+</html>
